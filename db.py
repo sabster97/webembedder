@@ -8,7 +8,7 @@ import tiktoken
 import json
 import time
 from dotenv import load_dotenv
-from webembedder.sys_prompt import get_sys_prompt
+from sys_prompt import get_sys_prompt
 
 class DocumentQA:
     
@@ -73,7 +73,7 @@ class DocumentQA:
    
 
 
-    def classify_query(self, prompt_library, query: str) -> str:
+    def classify_query(self, query: str) -> str:
         """Moved from __main__ to class method"""
         classification_prompt = f"""You are a helpful assistant specialized in understanding user queries. Based on the user's query, classify it into one of the following intents:
         
@@ -97,7 +97,7 @@ class DocumentQA:
             max_tokens=20
         )
         classification= response.choices[0].message.content.strip().lower()
-        return prompt_library[classification]
+        return self.prompt_library[classification]
     
 
     def _get_relevant_chunks(self, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
@@ -158,6 +158,7 @@ Please provide a clear and concise answer based only on the information provided
 
     def ai_magic(self, sys_prompt, query: str) -> Dict[str, Any]:
         """Enhanced RAG implementation with better context handling and structured output"""
+        print("ENTERED AI MAGIC")
         relevant_docs = self._get_relevant_chunks(query, n_results=10)
         context = self._truncate_context(relevant_docs, query)
         

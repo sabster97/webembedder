@@ -1,0 +1,42 @@
+{
+  "url": "https://www.getclientell.com/salesforce-slack-agent/help-section",
+  "title": "Salesforce Slack Agent Help Section - Clientell",
+  "intent": "",
+  "keywords": [],
+  "internal_links": [
+    "https://www.getclientell.com/",
+    "https://www.getclientell.com/salesforce-slack-agent#what-we-can-do",
+    "https://www.getclientell.com/salesforce-slack-agent#what-we-can-do",
+    "https://www.getclientell.com/salesforce-slack-agent#what-we-can-do",
+    "https://www.getclientell.com/salesforce-slack-agent#features",
+    "https://www.getclientell.com/salesforce-slack-agent#features",
+    "https://www.getclientell.com/salesforce-slack-agent#features",
+    "https://www.getclientell.com/company/legal"
+  ],
+  "meta_description": "Welcome to the Slack Agent Help Center",
+  "meta_keywords": [],
+  "content": "Salesforce Slack AgentWelcome to the Slack Agent Help CenterYour Salesforce AI Admin is just One Chat AwayFind answers troubleshooting guides and best practicesHow to startQuick Start GuideNew to the Slack Agent Get started with these three simple stepsAdd the bot to your desired Slack channelUse the signin command to connect to SalesforceStart querying your Salesforce data directly from SlackAuthentication  SecuritySigning InUse the signin command in any channel where the bot is presentYoull be redirected to Salesforces secure login pageComplete the authentication through Salesforces standard OAuth flowSecurity MeasuresWe implement industry-standard OAuth 20 for authenticationAll data transfers occur through encrypted channelsSession ManagementUse signin to reconnect when neededTo manually end your session use signoutNew authentication is required after session expirationPrivacy  Data ProtectionData HandlingConversations are processed in-memory onlyNo permanent storage of chat historyMessage history is only used for maintaining immediate conversation contextRegular data cleanup to ensure privacyVisibility  AccessChannel interactions Visible to channel members onlyPrivate queries Use direct messages with the botAdmin visibility Follows standard Slack admin permissionsNo cross-channel data sharingToken based permission and visibilityData SecurityEnd-to-end encryption for all data transfersSecure API endpointsRegular security auditsCompliance with data protection standardsHow to useUsage GuidelinesUsage GuidelinesChannel ManagementBot can be added toPublic channelsPrivate channelsDirect messagesEach channel maintains separate conversation contextsAdd to multiple channels without interferenceBasic Commandssignin Connect to Salesforcesignout End your sessionhelp View available commandsstatus Check connection statusBest PracticesUse direct messages for sensitive queriesRegular re-authentication for securityClear specific commands for best resultsOne query at a time for optimal processingTroubleshootTroubleshootBot not workingCheck if youre signed in using signinVerify your Salesforce credentialsConfirm bot is properly added to the channelCheck your permissions in SalesforceAuthentication FailuresUse Sign out followed by SigninClear browser cache if issues persistVerify Salesforce credentialsCheck for Salesforce maintenance windowsPerformance IssuesEnsure a stable internet connectionOne query at a timeAvoid complex nested queriesCheck Salesforce API limitsErrorsError Messages ExplainedError Messages ExplainedAuthentication FailedTypically indicates expired sessionSolution Re-authenticate using signinCheck Salesforce credentials if persistentPermission DeniedCheck Salesforce object permissionsVerify Slack channel permissionsConfirm API access rightsVerify User token permission as on SalesforceService UnavailableCheck the Salesforce status pageVerify internet connectionTry again in a few minutesBetter ResultsTips for Best ResultsTips for Best ResultsQuery EfficiencyUse specific commandsBreak down complex queriesRegular session managementClear conversation contextSecurity Best PracticesRegular password updatesSecure network connectionsProper logout proceduresMonitor access logsPerformance OptimizationClean chat historyUpdated credentialsProper command syntaxRegular cache clearingSecuritySecurity PolicySecurity PolicyData ProtectionISO 27001 certifiedGDPR compliantRegular security auditsEncrypted data transmissionService UnavailableRole-based accessMulti-factor authenticationRegular permission reviewsAudit loggingPut Your Salesforce Slack Agent at Work NowPut Your Salesforce Slack Agent at Work NowStart Conversation NowStart Conversation NowStart Conversation NowClientellWhy UsWhy UsWhy UsFeaturesFeaturesFeaturesÂ 2024 â Clientell Technologies pvt ltdPrivacy",
+  "pillar_keywords": [],
+  "personas": [],
+  "additional_keywords": [],
+  "outline": [],
+  "link_structure": {
+    "internal": [
+      "https://www.getclientell.com/",
+      "https://www.getclientell.com/salesforce-slack-agent#what-we-can-do",
+      "https://www.getclientell.com/salesforce-slack-agent#what-we-can-do",
+      "https://www.getclientell.com/salesforce-slack-agent#what-we-can-do",
+      "https://www.getclientell.com/salesforce-slack-agent#features",
+      "https://www.getclientell.com/salesforce-slack-agent#features",
+      "https://www.getclientell.com/salesforce-slack-agent#features",
+      "https://www.getclientell.com/company/legal"
+    ],
+    "external": [
+      "https://auth.clientell.ai/slack/install",
+      "https://auth.clientell.ai/slack/install",
+      "https://auth.clientell.ai/slack/install",
+      "https://www.linkedin.com/company/getclientell/"
+    ]
+  },
+  "timestamp": "2024-12-04 20:03:19"
+}

@@ -103,17 +103,20 @@ def send_slack_message(channel, text, thread_ts=None):
 @app.route('/query', methods=['POST'])
 def query():
     try:
+        print("Query received")
         data = request.get_json()
+        print(data)
         if not data or 'query' not in data:
             return jsonify({"error": "No query provided"}), 400
         
         query_text = data['query']
-        
+        print(query_text)
         # Classify the query intent
         sys_prompt = qa.classify_query(query_text)
         
-        
-        response = qa._ai_magic(sys_prompt, query_text)
+        print("sys_prompt ---> ", sys_prompt)
+        print("query_text ---> ", query_text)
+        response = qa.ai_magic(sys_prompt, query_text)
         
         return jsonify({
             "intent": sys_prompt,
