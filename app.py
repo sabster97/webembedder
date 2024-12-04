@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import requests
 import asyncio
 from threading import Thread
+from slack_format import format_for_slack
 
 # Load environment variables from .env file
 load_dotenv()
@@ -60,23 +61,12 @@ async def execute(user_query, channel_id, thread_ts):
     # Format the response based on the API response structure
     response = api_data.get('response', {})
     intent = api_data.get('intent', 'general')
-
-    if isinstance(response, dict) and 'search_results' in response:
-        # Format for general questions with search results
-        message = "*Question:*\n" + user_query + "\n\n"
-        message += "*AI Response:*\n" + str(response.get('ai_response', 'No response')) + "\n\n"
-        
-        if response.get('search_results'):
-            message += "*Related Documents:*\n"
-            for idx, result in enumerate(response['search_results'], 1):
-                message += f"#{idx}. {result}\n"
-    else:
-        # Format for CTA or SEO improvements
-        message = "*Query:*\n" + user_query + "\n\n"
-        message += "*Suggestions:*\n" + str(response)
-
+    print("response ---> ", response)
+    answer = response.get('answer', '')
+    formatted_answer = format_for_slack(answer)
+    print("formatted_answer ---> ", formatted_answer)
     # Send the formatted message to Slack
-    send_slack_message(channel_id, message, thread_ts)
+    send_slack_message(channel_id, formatted_answer, thread_ts)
 
 async def cancel_task_after(task, delay):
     """Cancel the task after a delay."""
@@ -92,7 +82,8 @@ def send_slack_message(channel, text, thread_ts=None):
     }
     payload = {
         "channel": channel,
-        "text": "Bot: " + text,
+        "blocks": text,
+        "text": "Message from Bot"
     }
     if thread_ts:
         payload["thread_ts"] = thread_ts
