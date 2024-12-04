@@ -114,7 +114,6 @@ class DocumentQA:
                 'metadata': results['metadatas'][0][i],
                 'distance': results['distances'][0][i]
             })
-        
         return documents
 
     def _truncate_context(self, documents: List[Dict], query: str) -> str:
@@ -161,12 +160,13 @@ Please provide a clear and concise answer based only on the information provided
         print("ENTERED AI MAGIC")
         relevant_docs = self._get_relevant_chunks(query, n_results=10)
         context = self._truncate_context(relevant_docs, query)
-        
+        print("context ---> ", context)
         # Enhanced prompt template for better RAG performance
         
-        user_prompt=query
+        user_prompt="query: " + query + "\ncontext: " + context
+        print("user_prompt ---> ", user_prompt)
         # Count input tokens
-        input_tokens = self._count_tokens(sys_prompt+user_prompt+context)
+        input_tokens = self._count_tokens(sys_prompt+user_prompt)
         
         response = self.llm_client.chat.completions.create(
             model="gpt-3.5-turbo",
