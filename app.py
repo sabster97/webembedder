@@ -60,8 +60,6 @@ async def execute(user_query, channel_id, thread_ts):
 
     # Format the response based on the API response structure
     response = api_data.get('response', {})
-    intent = api_data.get('intent', 'general')
-    print("response ---> ", response)
     answer = response.get('answer', '')
     formatted_answer = format_for_slack(answer)
     # Convert string to JSON if it's a string
@@ -76,21 +74,49 @@ async def cancel_task_after(task, delay):
     if not task.done():
         task.cancel()
 
+def filter_valid_blocks(blocks):
+    """
+    Filters out blocks with empty or invalid text fields.
+
+    Parameters:
+    blocks (list): The list of blocks to validate.
+
+    Returns:
+    list: A list of valid blocks.
+    """
+    valid_blocks = []
+    for block in blocks:
+        if block.get("type") == "section":
+            text = block.get("text", {})
+            if text.get("text", "").strip():  # Check if text is non-empty
+                valid_blocks.append(block)
+            else:
+                print(f"Skipping invalid block: {block}")
+        else:
+            valid_blocks.append(block)
+    return valid_blocks
+
+
 def send_slack_message(channel, text, thread_ts=None):
     """Send a message to Slack."""
+    print("Entered send_slack_message")
+    print("format_for_slack ---> ", len(text["blocks"]))
+    valid_blocks = filter_valid_blocks(text["blocks"])
+
     headers = {
         "Authorization": f"Bearer {SLACK_BOT_TOKEN}",
         "Content-Type": "application/json"
     }
     payload = {
         "channel": channel,
-        "blocks": text["blocks"],
+        "blocks": valid_blocks,
         "text": "Message from Bot"
     }
     if thread_ts:
         payload["thread_ts"] = thread_ts
 
-    requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    response = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    print("response ---> ", response.json())
 
 
 @app.route('/query', methods=['POST'])

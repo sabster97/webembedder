@@ -160,11 +160,9 @@ Please provide a clear and concise answer based only on the information provided
         print("ENTERED AI MAGIC")
         relevant_docs = self._get_relevant_chunks(query, n_results=10)
         context = self._truncate_context(relevant_docs, query)
-        print("context ---> ", context)
         # Enhanced prompt template for better RAG performance
-        
+        print("context_length ---> ", len(context))
         user_prompt="query: " + query + "\ncontext: " + context
-        print("user_prompt ---> ", user_prompt)
         # Count input tokens
         input_tokens = self._count_tokens(sys_prompt+user_prompt)
         
