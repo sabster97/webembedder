@@ -6,7 +6,7 @@ import requests
 import asyncio
 from threading import Thread
 from slack_format import format_for_slack
-
+import json
 # Load environment variables from .env file
 load_dotenv()
 
@@ -64,7 +64,9 @@ async def execute(user_query, channel_id, thread_ts):
     print("response ---> ", response)
     answer = response.get('answer', '')
     formatted_answer = format_for_slack(answer)
-    print("formatted_answer ---> ", formatted_answer)
+    # Convert string to JSON if it's a string
+    if isinstance(formatted_answer, str):
+        formatted_answer = json.loads(formatted_answer)
     # Send the formatted message to Slack
     send_slack_message(channel_id, formatted_answer, thread_ts)
 
@@ -82,7 +84,7 @@ def send_slack_message(channel, text, thread_ts=None):
     }
     payload = {
         "channel": channel,
-        "blocks": text,
+        "blocks": text["blocks"],
         "text": "Message from Bot"
     }
     if thread_ts:
