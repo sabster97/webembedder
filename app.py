@@ -76,7 +76,96 @@ async def execute(user_query, channel_id, thread_ts):
         message += "*Suggestions:*\n" + str(response)
 
     # Send the formatted message to Slack
-    send_slack_message(channel_id, message, thread_ts)
+    #Temp code for testing
+    msg = {
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Current SEO Strengths and Weaknesses:"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "**Strengths:**\n- The content is rich in relevant keywords related to Salesforce best practices across various industries.\n- The website has a good amount of content, which can help in targeting a wide range of search queries.\n- The content provides detailed information about Salesforce best practices, implementation checklists, and benefits for different sectors."
+                }
+    },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "**Weaknesses:**\n- Lack of unique meta descriptions and title tags for each page, which can affect click-through rates in search results.\n- Limited use of internal linking to connect related content and improve website structure.\n- The content could be more organized and structured for better user experience and SEO."
+                }
+            },
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Keyword Optimization Suggestions:"
+                }
+    },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "- Conduct keyword research to identify high-volume and relevant keywords related to Salesforce best practices in different industries.\n- Optimize meta titles, headings, and content with targeted keywords to improve visibility in search results.\n- Use long-tail keywords specific to each industry or service to attract more qualified traffic.\n- Include keywords in image alt text, URLs, and meta descriptions for better optimization."
+                }
+            },
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Content Structure Improvements:"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "- Create a clear hierarchy of content with headings, subheadings, and bullet points for easy readability.\n- Use internal linking to connect related content and guide users to explore more pages on the website.\n- Consider creating pillar pages for each industry or service category to consolidate related content and improve SEO."
+                }
+            },
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Meta Description and Title Tag Recommendations:"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "- Craft unique and compelling meta descriptions that accurately describe the content of each page and include relevant keywords.\n- Optimize title tags to be concise, descriptive, and include primary keywords to improve click-through rates and search visibility.\n- Ensure meta descriptions and title tags are within recommended character limits for better display in search results."
+                }
+            },
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Specific Actionable Improvements:"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "1. Implement a consistent internal linking strategy to connect related content and improve website structure.\n2. Optimize meta descriptions and title tags for each page with relevant keywords and unique descriptions.\n3. Consider creating industry-specific landing pages with targeted content and keywords to attract more organic traffic.\n4. Improve content organization by grouping related topics together and creating clear navigation paths for users.\n5. Regularly update and refresh content to keep it relevant and engaging for users and search engines."
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "By implementing these improvements, you can enhance the website's SEO performance, increase visibility in search results, and attract more qualified traffic from organic search."
+                }
+            }
+        ]
+    }
+    send_slack_message(channel_id, msg, thread_ts)
 
 async def cancel_task_after(task, delay):
     """Cancel the task after a delay."""
@@ -92,7 +181,8 @@ def send_slack_message(channel, text, thread_ts=None):
     }
     payload = {
         "channel": channel,
-        "text": "Bot: " + text,
+        # "text": "Bot: " +text,
+        "blocks": text if isinstance(text, list) else text["blocks"]
     }
     if thread_ts:
         payload["thread_ts"] = thread_ts
