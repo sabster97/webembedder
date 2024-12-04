@@ -110,24 +110,13 @@ def query():
         query_text = data['query']
         
         # Classify the query intent
-        intent = qa.classify_query(query_text)
+        sys_prompt = qa.classify_query(query_text)
         
-        # Process based on intent
-        if intent == "improve_cta":
-            response = qa.improve_cta(query_text)
-        elif intent == "improve_seo":
-            response = qa.improve_seo(query_text)
-        else:
-            # For general questions, include both search results and AI response
-            search_results = qa.search_documents(query_text)
-            ai_response = qa.ask(query_text)
-            response = {
-                "search_results": search_results,
-                "ai_response": ai_response
-            }
+        
+        response = qa._ai_magic(sys_prompt, query_text)
         
         return jsonify({
-            "intent": intent,
+            "intent": sys_prompt,
             "response": response
         }), 200
         

@@ -8,8 +8,10 @@ import tiktoken
 import json
 import time
 from dotenv import load_dotenv
+from webembedder.sys_prompt import get_sys_prompt
 
 class DocumentQA:
+    
     def __init__(self):
         # Load environment variables from .env file
         load_dotenv()
@@ -18,7 +20,7 @@ class DocumentQA:
         db_path = os.getenv('CHROMA_DB_PATH', './chroma_db')
         self.client = chromadb.PersistentClient(path=db_path)
         self.collection = self.client.get_collection(name="getclientell_content")
-        
+        self.prompt_library=get_sys_prompt()
         # Get API key from environment variable
         api_key = os.getenv('OPENAI_API_KEY')
         if not api_key:
@@ -68,130 +70,35 @@ class DocumentQA:
         
         return formatted_results
 
-    def improve_cta(self, query: str) -> Dict[str, Any]:
-        """Analyze and provide suggestions for improving CTAs"""
-        relevant_docs = self._get_relevant_chunks(query)
-        context = self._truncate_context(relevant_docs, query)
-        
-        prompt = f"""Based on the following content, provide specific suggestions to improve the call-to-action (CTA) elements:
+   
 
-Context documents:
-{context}
 
-Please analyze the content and provide:
-1. Current CTAs found in the content
-2. Specific suggestions for improvement
-3. Examples of better CTAs
-4. Best practices that could be applied
-
-Focus on making the CTAs more compelling, action-oriented, and effective at driving conversions."""
-
-        # Count input tokens
-        input_tokens = self._count_tokens(prompt)
-
-        response = self.llm_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a CTA optimization expert focused on improving conversion rates."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            max_tokens=1500
-        )
-
-        # Count output tokens
-        output_tokens = self._count_tokens(response.choices[0].message.content)
-
-        return {
-            "type": "cta_improvement",
-            "suggestions": response.choices[0].message.content,
-            "analyzed_content": [
-                {
-                    "url": doc["metadata"]["url"],
-                    "title": doc["metadata"]["title"]
-                } for doc in relevant_docs
-            ],
-            "token_usage": {
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "total_tokens": input_tokens + output_tokens
-            }
-        }
-
-    def improve_seo(self, query: str) -> Dict[str, Any]:
-        """Analyze and provide SEO improvement suggestions"""
-        relevant_docs = self._get_relevant_chunks(query)
-        context = self._truncate_context(relevant_docs, query)
-        
-        prompt = f"""Based on the following content, provide specific SEO improvement suggestions:
-
-Context documents:
-{context}
-
-Please analyze the content and provide:
-1. Current SEO strengths and weaknesses
-2. Keyword optimization suggestions
-3. Content structure improvements
-4. Meta description and title tag recommendations
-5. Specific actionable improvements
-
-Focus on modern SEO best practices and ways to improve search engine rankings while maintaining content quality."""
-
-        # Count input tokens
-        input_tokens = self._count_tokens(prompt)
-
-        response = self.llm_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are an SEO expert focused on improving website visibility and rankings."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            max_tokens=1500
-        )
-
-        # Count output tokens
-        output_tokens = self._count_tokens(response.choices[0].message.content)
-
-        return {
-            "type": "seo_improvement",
-            "suggestions": response.choices[0].message.content,
-            "analyzed_content": [
-                {
-                    "url": doc["metadata"]["url"],
-                    "title": doc["metadata"]["title"]
-                } for doc in relevant_docs
-            ],
-            "token_usage": {
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "total_tokens": input_tokens + output_tokens
-            }
-        }
-
-    def classify_query(self, query: str) -> str:
+    def classify_query(self, prompt_library, query: str) -> str:
         """Moved from __main__ to class method"""
-        classification_prompt = f"""You are a helpful assistant specializing in query classification. Based on the user's query, classify it into one of the following intents:
+        classification_prompt = f"""You are a helpful assistant specialized in understanding user queries. Based on the user's query, classify it into one of the following intents:
         
-        1. "improve_cta": For queries related to improving call-to-actions or marketing content.
-        2. "general_question": For general questions requiring AI assistance.
-        3. "improve_seo": For queries related to improving website SEO.
-        4. "other": For queries that do not match the above categories.
-
+        1. "optimize_page": For queries related to optimizing content, keywords or link structure for SEO on an existing page.
+        2. "research_question": For questions requiring research into a new topic or page.
+        3. "verification": For queries asking to evaluate a page basis an SEO checklist.
+        4. "analytics_question": For questions requiring analysis of website analytics data or suggestions for seo optimization
+        5. "other": For general questions that do not fit into the other categories.
+        
         Query: "{query}"
 
-        Provide only the intent name (e.g., "improve_cta", "general_question", "improve_seo", "other")."""
+        Provide only the intent name (e.g., "optimize_page", "research_question", "verification", "analytics_question", "other")."""
         
         response = self.llm_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are an intent classification assistant."},
+                {"role": "system", "content": "You are an seo intent classification assistant."},
                 {"role": "user", "content": classification_prompt}
             ],
-            temperature=0.3,
+            temperature=0.1,
             max_tokens=20
         )
-        return response.choices[0].message.content.strip().lower()
+        classification= response.choices[0].message.content.strip().lower()
+        return prompt_library[classification]
+    
 
     def _get_relevant_chunks(self, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
         """Retrieve relevant document chunks from the vector database"""
@@ -249,40 +156,22 @@ Please provide a clear and concise answer based only on the information provided
         """Count the number of tokens in a text string"""
         return len(self.encoding.encode(text))
 
-    def ask(self, query: str) -> Dict[str, Any]:
+    def ai_magic(self, sys_prompt, query: str) -> Dict[str, Any]:
         """Enhanced RAG implementation with better context handling and structured output"""
         relevant_docs = self._get_relevant_chunks(query, n_results=10)
         context = self._truncate_context(relevant_docs, query)
         
         # Enhanced prompt template for better RAG performance
-        prompt = f"""You are an AI assistant with expertise in the website's content. Use the following retrieved documents to answer the question. 
         
-        Question: {query}
-
-        Retrieved Documents:
-        {context}
-
-        Instructions:
-        1. Answer primarily based on the information in the retrieved documents
-        2. If you need to make assumptions or use general knowledge, clearly indicate this
-        3. If the documents don't contain enough information, acknowledge this
-        4. Cite specific parts of the documents when possible
-        5. Structure your response with clear sections:
-           - Direct Answer
-           - Supporting Evidence
-           - Additional Context (if needed)
-           - Confidence Level (High/Medium/Low)
-
-        Remember: Focus on accuracy and transparency about the source of information."""
-
+        user_prompt=query
         # Count input tokens
-        input_tokens = self._count_tokens(prompt)
-
+        input_tokens = self._count_tokens(sys_prompt+user_prompt+context)
+        
         response = self.llm_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a specialized AI assistant with deep knowledge of the website's content. Your goal is to provide accurate, well-supported answers based on the retrieved documents."},
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_prompt}
             ],
             temperature=0.3,
             max_tokens=2000
@@ -383,3 +272,4 @@ Please provide a clear and concise answer based only on the information provided
         text_norm = sum(t * t for t in text_embedding) ** 0.5
         
         return dot_product / (query_norm * text_norm)
+    
