@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import requests
 import asyncio
 from threading import Thread
+from slack_format import format_message_for_slack
 
 # Load environment variables from .env file
 load_dotenv()
@@ -74,6 +75,7 @@ async def execute(user_query, channel_id, thread_ts):
         # Format for CTA or SEO improvements
         message = "*Query:*\n" + user_query + "\n\n"
         message += "*Suggestions:*\n" + str(response)
+        message=format_message_for_slack(message)
 
     # Send the formatted message to Slack
     send_slack_message(channel_id, message, thread_ts)
