@@ -11,7 +11,6 @@ class GoogleAnalyticsMetricLoader:
         """
         Reads the Google Analytics metrics CSV file and returns a list of dictionaries
         containing selected metrics for each page.
-
         Returns:
             List[Dict]: List of dictionaries containing metrics for each page
         """
@@ -68,7 +67,7 @@ class GoogleAnalyticsMetricLoader:
 
 # Example usage:
 if __name__ == "__main__":
-    loader = GoogleAnalyticsMetricLoader("google_anlaytics_metrics.csv")
+    loader = GoogleAnalyticsMetricLoader("google_analytics_metrics.csv")
     metrics = loader.load_metrics()
 
     # Print first few entries to verify
