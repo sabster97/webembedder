@@ -20,7 +20,11 @@ def main():
                         "url": data["url"],
                         "title": data["title"],
                         "timestamp": data["timestamp"],
-                        "filename": json_file.name
+                        "filename": json_file.name,
+                        "intent": data["intent"],
+                        "keywords": str(data["keywords"]),
+                        "internal_links": str(data["internal_links"]),
+                        "meta_description": data["meta_description"]
                     }]
                 )
                 count += 1

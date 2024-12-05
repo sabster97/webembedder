@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 import requests
 import asyncio
 from threading import Thread
-
+from slack_format import format_for_slack
+import json
 # Load environment variables from .env file
 load_dotenv()
 
@@ -59,113 +60,13 @@ async def execute(user_query, channel_id, thread_ts):
 
     # Format the response based on the API response structure
     response = api_data.get('response', {})
-    intent = api_data.get('intent', 'general')
-
-    if isinstance(response, dict) and 'search_results' in response:
-        # Format for general questions with search results
-        message = "*Question:*\n" + user_query + "\n\n"
-        message += "*AI Response:*\n" + str(response.get('ai_response', 'No response')) + "\n\n"
-        
-        if response.get('search_results'):
-            message += "*Related Documents:*\n"
-            for idx, result in enumerate(response['search_results'], 1):
-                message += f"#{idx}. {result}\n"
-    else:
-        # Format for CTA or SEO improvements
-        message = "*Query:*\n" + user_query + "\n\n"
-        message += "*Suggestions:*\n" + str(response)
-
+    answer = response.get('answer', '')
+    formatted_answer = format_for_slack(answer)
+    # Convert string to JSON if it's a string
+    if isinstance(formatted_answer, str):
+        formatted_answer = json.loads(formatted_answer)
     # Send the formatted message to Slack
-    #Temp code for testing
-    msg = {
-        "blocks": [
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": "Current SEO Strengths and Weaknesses:"
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "**Strengths:**\n- The content is rich in relevant keywords related to Salesforce best practices across various industries.\n- The website has a good amount of content, which can help in targeting a wide range of search queries.\n- The content provides detailed information about Salesforce best practices, implementation checklists, and benefits for different sectors."
-                }
-    },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "**Weaknesses:**\n- Lack of unique meta descriptions and title tags for each page, which can affect click-through rates in search results.\n- Limited use of internal linking to connect related content and improve website structure.\n- The content could be more organized and structured for better user experience and SEO."
-                }
-            },
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": "Keyword Optimization Suggestions:"
-                }
-    },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "- Conduct keyword research to identify high-volume and relevant keywords related to Salesforce best practices in different industries.\n- Optimize meta titles, headings, and content with targeted keywords to improve visibility in search results.\n- Use long-tail keywords specific to each industry or service to attract more qualified traffic.\n- Include keywords in image alt text, URLs, and meta descriptions for better optimization."
-                }
-            },
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": "Content Structure Improvements:"
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "- Create a clear hierarchy of content with headings, subheadings, and bullet points for easy readability.\n- Use internal linking to connect related content and guide users to explore more pages on the website.\n- Consider creating pillar pages for each industry or service category to consolidate related content and improve SEO."
-                }
-            },
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": "Meta Description and Title Tag Recommendations:"
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "- Craft unique and compelling meta descriptions that accurately describe the content of each page and include relevant keywords.\n- Optimize title tags to be concise, descriptive, and include primary keywords to improve click-through rates and search visibility.\n- Ensure meta descriptions and title tags are within recommended character limits for better display in search results."
-                }
-            },
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": "Specific Actionable Improvements:"
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "1. Implement a consistent internal linking strategy to connect related content and improve website structure.\n2. Optimize meta descriptions and title tags for each page with relevant keywords and unique descriptions.\n3. Consider creating industry-specific landing pages with targeted content and keywords to attract more organic traffic.\n4. Improve content organization by grouping related topics together and creating clear navigation paths for users.\n5. Regularly update and refresh content to keep it relevant and engaging for users and search engines."
-                }
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "By implementing these improvements, you can enhance the website's SEO performance, increase visibility in search results, and attract more qualified traffic from organic search."
-                }
-            }
-        ]
-    }
-    send_slack_message(channel_id, msg, thread_ts)
+    send_slack_message(channel_id, formatted_answer, thread_ts)
 
 async def cancel_task_after(task, delay):
     """Cancel the task after a delay."""
@@ -173,51 +74,71 @@ async def cancel_task_after(task, delay):
     if not task.done():
         task.cancel()
 
+def filter_valid_blocks(blocks):
+    """
+    Filters out blocks with empty or invalid text fields.
+
+    Parameters:
+    blocks (list): The list of blocks to validate.
+
+    Returns:
+    list: A list of valid blocks.
+    """
+    valid_blocks = []
+    for block in blocks:
+        if block.get("type") == "section":
+            text = block.get("text", {})
+            if text.get("text", "").strip():  # Check if text is non-empty
+                valid_blocks.append(block)
+            else:
+                print(f"Skipping invalid block: {block}")
+        else:
+            valid_blocks.append(block)
+    return valid_blocks
+
+
 def send_slack_message(channel, text, thread_ts=None):
     """Send a message to Slack."""
+    print("Entered send_slack_message")
+    print("format_for_slack ---> ", len(text["blocks"]))
+    valid_blocks = filter_valid_blocks(text["blocks"])
+
     headers = {
         "Authorization": f"Bearer {SLACK_BOT_TOKEN}",
         "Content-Type": "application/json"
     }
     payload = {
         "channel": channel,
-        # "text": "Bot: " +text,
-        "blocks": text if isinstance(text, list) else text["blocks"]
+        "blocks": valid_blocks,
+        "text": "Message from Bot"
     }
     if thread_ts:
         payload["thread_ts"] = thread_ts
 
-    requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    response = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    print("response ---> ", response.json())
 
 
 @app.route('/query', methods=['POST'])
 def query():
     try:
+        print("Query received")
         data = request.get_json()
+        print(data)
         if not data or 'query' not in data:
             return jsonify({"error": "No query provided"}), 400
         
         query_text = data['query']
-        
+        print(query_text)
         # Classify the query intent
-        intent = qa.classify_query(query_text)
+        sys_prompt = qa.classify_query(query_text)
         
-        # Process based on intent
-        if intent == "improve_cta":
-            response = qa.improve_cta(query_text)
-        elif intent == "improve_seo":
-            response = qa.improve_seo(query_text)
-        else:
-            # For general questions, include both search results and AI response
-            search_results = qa.search_documents(query_text)
-            ai_response = qa.ask(query_text)
-            response = {
-                "search_results": search_results,
-                "ai_response": ai_response
-            }
+        print("sys_prompt ---> ", sys_prompt)
+        print("query_text ---> ", query_text)
+        response = qa.ai_magic(sys_prompt, query_text)
         
         return jsonify({
-            "intent": intent,
+            "intent": sys_prompt,
             "response": response
         }), 200
         
