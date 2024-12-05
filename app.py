@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 import requests
 import asyncio
 from threading import Thread
-
+from slack_format import format_for_slack
+import json
 # Load environment variables from .env file
 load_dotenv()
 
@@ -59,24 +60,13 @@ async def execute(user_query, channel_id, thread_ts):
 
     # Format the response based on the API response structure
     response = api_data.get('response', {})
-    intent = api_data.get('intent', 'general')
-
-    if isinstance(response, dict) and 'search_results' in response:
-        # Format for general questions with search results
-        message = "*Question:*\n" + user_query + "\n\n"
-        message += "*AI Response:*\n" + str(response.get('ai_response', 'No response')) + "\n\n"
-        
-        if response.get('search_results'):
-            message += "*Related Documents:*\n"
-            for idx, result in enumerate(response['search_results'], 1):
-                message += f"#{idx}. {result}\n"
-    else:
-        # Format for CTA or SEO improvements
-        message = "*Query:*\n" + user_query + "\n\n"
-        message += "*Suggestions:*\n" + str(response)
-
+    answer = response.get('answer', '')
+    formatted_answer = format_for_slack(answer)
+    # Convert string to JSON if it's a string
+    if isinstance(formatted_answer, str):
+        formatted_answer = json.loads(formatted_answer)
     # Send the formatted message to Slack
-    send_slack_message(channel_id, message, thread_ts)
+    send_slack_message(channel_id, formatted_answer, thread_ts)
 
 async def cancel_task_after(task, delay):
     """Cancel the task after a delay."""
@@ -84,50 +74,71 @@ async def cancel_task_after(task, delay):
     if not task.done():
         task.cancel()
 
+def filter_valid_blocks(blocks):
+    """
+    Filters out blocks with empty or invalid text fields.
+
+    Parameters:
+    blocks (list): The list of blocks to validate.
+
+    Returns:
+    list: A list of valid blocks.
+    """
+    valid_blocks = []
+    for block in blocks:
+        if block.get("type") == "section":
+            text = block.get("text", {})
+            if text.get("text", "").strip():  # Check if text is non-empty
+                valid_blocks.append(block)
+            else:
+                print(f"Skipping invalid block: {block}")
+        else:
+            valid_blocks.append(block)
+    return valid_blocks
+
+
 def send_slack_message(channel, text, thread_ts=None):
     """Send a message to Slack."""
+    print("Entered send_slack_message")
+    print("format_for_slack ---> ", len(text["blocks"]))
+    valid_blocks = filter_valid_blocks(text["blocks"])
+
     headers = {
         "Authorization": f"Bearer {SLACK_BOT_TOKEN}",
         "Content-Type": "application/json"
     }
     payload = {
         "channel": channel,
-        "text": "Bot: " + text,
+        "blocks": valid_blocks,
+        "text": "Message from Bot"
     }
     if thread_ts:
         payload["thread_ts"] = thread_ts
 
-    requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    response = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    print("response ---> ", response.json())
 
 
 @app.route('/query', methods=['POST'])
 def query():
     try:
+        print("Query received")
         data = request.get_json()
+        print(data)
         if not data or 'query' not in data:
             return jsonify({"error": "No query provided"}), 400
         
         query_text = data['query']
-        
+        print(query_text)
         # Classify the query intent
-        intent = qa.classify_query(query_text)
+        sys_prompt = qa.classify_query(query_text)
         
-        # Process based on intent
-        if intent == "improve_cta":
-            response = qa.improve_cta(query_text)
-        elif intent == "improve_seo":
-            response = qa.improve_seo(query_text)
-        else:
-            # For general questions, include both search results and AI response
-            search_results = qa.search_documents(query_text)
-            ai_response = qa.ask(query_text)
-            response = {
-                "search_results": search_results,
-                "ai_response": ai_response
-            }
+        print("sys_prompt ---> ", sys_prompt)
+        print("query_text ---> ", query_text)
+        response = qa.ai_magic(sys_prompt, query_text)
         
         return jsonify({
-            "intent": intent,
+            "intent": sys_prompt,
             "response": response
         }), 200
         
