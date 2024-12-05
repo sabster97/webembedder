@@ -64,3 +64,6 @@ wheels/
 *.egg
 raw_data/
 chroma_db/
+
+scraped_web_data/
+webpage_data_chroma_db
