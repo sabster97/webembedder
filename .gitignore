@@ -19,10 +19,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-<<<<<<< HEAD
-MANIFEST
-=======
->>>>>>> 85375e9786cd58fd9b5bf89ca641b5709fce9193
 
 # Virtual Environment
 venv/
@@ -30,11 +26,6 @@ env/
 ENV/
 .env
 .venv
-<<<<<<< HEAD
-pip-log.txt
-pip-delete-this-directory.txt
-=======
->>>>>>> 85375e9786cd58fd9b5bf89ca641b5709fce9193
 
 # IDE specific files
 .idea/
@@ -42,46 +33,14 @@ pip-delete-this-directory.txt
 *.swp
 *.swo
 .DS_Store
-<<<<<<< HEAD
-=======
 
 # Local development
 *.log
->>>>>>> 85375e9786cd58fd9b5bf89ca641b5709fce9193
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-<<<<<<< HEAD
-# Docker
-.docker/
-docker-compose.override.yml
-
-# Testing
-.coverage
-.pytest_cache/
-htmlcov/
-.tox/
-.nox/
-coverage.xml
-*.cover
-.hypothesis/
-
-# Logs
-*.log
-logs/
-log/
-
-# Local development
-.env
-*.db
-*.sqlite3
-
-raw_data/
-chroma_db/
-chroma_db_chunked/
-=======
 # Database
 *.db
 *.sqlite3
@@ -105,4 +64,3 @@ wheels/
 *.egg
 raw_data/
 chroma_db/
->>>>>>> 85375e9786cd58fd9b5bf89ca641b5709fce9193
