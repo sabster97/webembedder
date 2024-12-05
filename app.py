@@ -54,19 +54,40 @@ def run_async_task(user_query, channel_id, thread_ts):
 
 async def execute(user_query, channel_id, thread_ts):
     """Execute the task."""
-    # Call your API with the user's query
-    api_response = requests.post(API_URL, json={"query": user_query})
-    api_data = api_response.json()
+    try:
+        # Call your API with the user's query
+        api_response = requests.post(API_URL, json={"query": user_query})
+        api_response.raise_for_status()  # Raise an exception for bad status codes
+        
+        try:
+            api_data = api_response.json()
+        except requests.exceptions.JSONDecodeError as e:
+            print(f"Failed to decode API response: {api_response.text}")
+            error_message = {"blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "Sorry, I received an invalid response from the API."}}]}
+            send_slack_message(channel_id, error_message, thread_ts)
+            return
 
-    # Format the response based on the API response structure
-    response = api_data.get('response', {})
-    answer = response.get('answer', '')
-    formatted_answer = format_for_slack(answer)
-    # Convert string to JSON if it's a string
-    if isinstance(formatted_answer, str):
-        formatted_answer = json.loads(formatted_answer)
-    # Send the formatted message to Slack
-    send_slack_message(channel_id, formatted_answer, thread_ts)
+        # Format the response based on the API response structure
+        response = api_data.get('response', {})
+        answer = response.get('answer', '')
+        formatted_answer = format_for_slack(answer)
+        # Convert string to JSON if it's a string
+        if isinstance(formatted_answer, str):
+            try:
+                formatted_answer = json.loads(formatted_answer)
+            except json.JSONDecodeError as e:
+                print(f"Failed to decode formatted answer: {formatted_answer}")
+                error_message = {"blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "Sorry, I encountered an error formatting the response."}}]}
+                send_slack_message(channel_id, error_message, thread_ts)
+                return
+
+        # Send the formatted message to Slack
+        send_slack_message(channel_id, formatted_answer, thread_ts)
+        
+    except requests.exceptions.RequestException as e:
+        print(f"API request failed: {str(e)}")
+        error_message = {"blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "Sorry, I couldn't reach the API at this time."}}]}
+        send_slack_message(channel_id, error_message, thread_ts)
 
 async def cancel_task_after(task, delay):
     """Cancel the task after a delay."""
