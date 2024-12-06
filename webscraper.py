@@ -6,6 +6,7 @@ import re
 import json
 import os
 from typing import List, Dict, Tuple
+import tiktoken
 
 class SEOWebScraper:
     def __init__(self):
@@ -89,6 +90,25 @@ class SEOWebScraper:
 
     def infer_persona(self, content: str, title: str) -> str:
         return ""
+    
+    def truncate_content(self, content: str, max_tokens: int = 8191) -> str:
+        """
+        Truncates the content to fit within the maximum token limits.
+        Parameters:
+        content (str): The content that needs to be truncated.
+        max_tokens (int): The maximum number of tokens allowed (default: 8191).
+        Returns:
+        str: Truncated content.
+        """
+        if not isinstance(content, str):
+            print(f"Warning: Expected string for content, got {type(content).__name__}. Returning empty string.")
+            return ""
+        encoding = tiktoken.get_encoding("cl100k_base")
+        tokens = encoding.encode(content)
+        if len(tokens) > max_tokens:
+            truncated_tokens = tokens[:max_tokens]
+            return encoding.decode(truncated_tokens)
+        return content
 
     def scrape_page(self, url: str, original_sitemap: str) -> Dict:
         try:
@@ -143,7 +163,7 @@ class SEOWebScraper:
                 "h1_h6_headings": ", ".join(headings) if headings else "",
                 "keyword_density": self.calculate_keyword_density(clean_content, ""),
                 "user_path": user_path,
-                "raw_content": clean_content
+                "raw_content": self.truncate_content(clean_content)
             }
             
             print(f"Successfully scraped: {url}")

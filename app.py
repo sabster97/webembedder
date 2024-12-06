@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from db import DocumentQA
+from retriever import DocumentQA
 import os
 from dotenv import load_dotenv
 import requests
@@ -20,9 +20,11 @@ def health_check():
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 API_URL = os.getenv("API_URL")
+print("API_URL ---> ", API_URL)
 
 @app.route('/slack/events', methods=['POST'])
 def slack_events():
+    print("Slack event received")
     data = request.get_json()
 
     # Slack event challenge verification
@@ -39,7 +41,7 @@ def slack_events():
         if not (data['event'].get('bot_id') or data['event'].get('subtype') == "message_changed"):
             thread = Thread(target=run_async_task, args=(user_query, channel_id, thread_ts))
             thread.start()
-
+    print("Slack event processed")
     return jsonify({"ok": True})
 
 def run_async_task(user_query, channel_id, thread_ts):
@@ -47,6 +49,7 @@ def run_async_task(user_query, channel_id, thread_ts):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
+        print("User query:", user_query)
         task = loop.create_task(execute(user_query, channel_id, thread_ts))
         loop.run_until_complete(task)
     finally:
@@ -55,8 +58,10 @@ def run_async_task(user_query, channel_id, thread_ts):
 async def execute(user_query, channel_id, thread_ts):
     """Execute the task."""
     try:
+        print("Executing task")
         # Call your API with the user's query
         api_response = requests.post(API_URL, json={"query": user_query})
+        print("API response:", api_response)
         api_response.raise_for_status()  # Raise an exception for bad status codes
         
         try:
@@ -157,6 +162,7 @@ def query():
         print("sys_prompt ---> ", sys_prompt)
         print("query_text ---> ", query_text)
         response = qa.ai_magic(sys_prompt, query_text)
+        print("AI magic response ---> ", response)
         
         return jsonify({
             "intent": sys_prompt,
@@ -168,4 +174,6 @@ def query():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
-    app.run(host='0.0.0.0', port=port) 
+    print("App running on port", port)
+    app.debug = os.environ.get('FLASK_DEBUG', 'True') != 'False'
+    app.run(host='127.0.0.1', port=port) 

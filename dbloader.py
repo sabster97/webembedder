@@ -78,6 +78,8 @@ class ChromaDBLoader:
     def process_webpage_data(self, webpage_data_dir: str = "scraped_web_data"):
         """Process webpage data from the scraped_web_data directory"""
         collection = self.get_or_create_collection()
+        if not collection:
+            raise Exception("Failed to create or retrieve the collection.")
         webpage_data_path = Path(webpage_data_dir)
         
         # Look for pages_data.json in the scraped_web_data directory
@@ -105,7 +107,7 @@ class ChromaDBLoader:
                     # Generate embedding for the content
                     response = openai.embeddings.create(
                         input=content,
-                        model="text-embedding-3-small"
+                        model="text-embedding-ada-002"
                     )
                     embedding = response.data[0].embedding
                     
