@@ -107,7 +107,7 @@ class ChromaDBLoader:
                     # Generate embedding for the content
                     response = openai.embeddings.create(
                         input=content,
-                        model="text-embedding-ada-002"
+                        model="text-embedding-3-small"
                     )
                     embedding = response.data[0].embedding
                     

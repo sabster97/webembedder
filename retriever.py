@@ -185,17 +185,15 @@ class DocumentQA:
         print("Inside Ai Magic")
         relevant_docs = self._enhance_retrieval(query, n_results=10)
         # print("relevant_docs",relevant_docs)
-        #context = self._truncate_context(relevant_docs, query)
+        context = [self._truncate_context(doc['content']) for doc in relevant_docs]
         user_prompt=query
-        context=relevant_docs
         print("before context")
         print("context",context)
         print("user_prompt",user_prompt)
-        final_user_prompt = self._truncate_context(user_prompt + context)
+        final_user_prompt = user_prompt + "\n\n" + "\n\n".join(context)
         print("final_user_prompt",final_user_prompt)
         
         # Enhanced prompt template for better RAG performance
-        
         
         # Count input tokens
         input_tokens = self._count_tokens(final_user_prompt+sys_prompt)
@@ -297,7 +295,7 @@ class DocumentQA:
     def _get_query_embedding(self, query: str) -> List[float]:
         """Get embedding for query using OpenAI's embedding model"""
         response = self.llm_client.embeddings.create(
-            model="text-embedding-ada-002",
+            model="text-embedding-3-small",
             input=query
         )
         return response.data[0].embedding
@@ -306,7 +304,7 @@ class DocumentQA:
         """Calculate semantic similarity between query and text"""
         # Get text embedding
         text_embedding_response = self.llm_client.embeddings.create(
-            model="text-embedding-ada-002",
+            model="text-embedding-3-small",
             input=text
         )
         text_embedding = text_embedding_response.data[0].embedding
