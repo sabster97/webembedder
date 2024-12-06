@@ -97,7 +97,6 @@ class DocumentQA:
             temperature=0.1,
             max_tokens=20
         )
-        print("Chat GPT response classification:", response)
         classification= response.choices[0].message.content.strip().lower()
         print("classification ---> ", classification)
         return self.prompt_library[classification]
@@ -187,7 +186,6 @@ class DocumentQA:
         # print("relevant_docs",relevant_docs)
         context = [self._truncate_context(doc['content']) for doc in relevant_docs]
         user_prompt=query
-        print("before context")
         print("context",context)
         print("user_prompt",user_prompt)
         final_user_prompt = user_prompt + "\n\n" + "\n\n".join(context)
