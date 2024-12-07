@@ -31,12 +31,19 @@ This project is designed to scrape data from getclientell.com, load it into a ve
   python dbloader.py
   ```
 
-## Running the Flask Server
+## Setting up ngrok for Flask Server
 - To start the Flask server, run the following command:
   ```bash
   python app.py
   ```
-- By default, the server will run on `http://127.0.0.1:5000/`. You can access the web interface by navigating to this URL in your web browser.
+- By default, the server will run on `http://127.0.0.1:5000/`. To expose this server to the internet, you need to use ngrok. Install ngrok if you haven't already, then run:
+  ```bash
+  ngrok http 5000
+  ```
+- This will give you a public URL that you can use to access your Flask server. Note down this URL.
+- Go to your Slack App Dashboard and set the `Request URL` under `Event Subscriptions` to the ngrok URL you just generated. This will allow your Flask server to receive incoming webhooks from Slack. Example: ```{YOUR_NGROK_URL}/slack/events```
+
+![alt text](image.png)
 
 ## Dependencies
 - List of dependencies can be found in `requirements.txt`.
