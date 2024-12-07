@@ -4,7 +4,6 @@ def get_sys_prompt():
     with open("./sys_prompts.csv", mode='r', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            print("yo")
             for key in reader.fieldnames:
                 sys_prompt_dict[key] = row[key]
     

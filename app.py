@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from db import DocumentQA
+from retriever import DocumentQA
 import os
 from dotenv import load_dotenv
 import requests
@@ -20,9 +20,11 @@ def health_check():
 
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 API_URL = os.getenv("API_URL")
+print("API_URL ---> ", API_URL)
 
 @app.route('/slack/events', methods=['POST'])
 def slack_events():
+    print("Slack event received")
     data = request.get_json()
 
     # Slack event challenge verification
@@ -39,7 +41,7 @@ def slack_events():
         if not (data['event'].get('bot_id') or data['event'].get('subtype') == "message_changed"):
             thread = Thread(target=run_async_task, args=(user_query, channel_id, thread_ts))
             thread.start()
-
+    print("Slack event processed")
     return jsonify({"ok": True})
 
 def run_async_task(user_query, channel_id, thread_ts):
@@ -55,8 +57,10 @@ def run_async_task(user_query, channel_id, thread_ts):
 async def execute(user_query, channel_id, thread_ts):
     """Execute the task."""
     try:
+        print("Executing task...")
         # Call your API with the user's query
         api_response = requests.post(API_URL, json={"query": user_query})
+        print("api_response", api_response)
         api_response.raise_for_status()  # Raise an exception for bad status codes
         
         try:
@@ -81,6 +85,7 @@ async def execute(user_query, channel_id, thread_ts):
                 send_slack_message(channel_id, error_message, thread_ts)
                 return
 
+        print("Task completed")
         # Send the formatted message to Slack
         send_slack_message(channel_id, formatted_answer, thread_ts)
         
@@ -120,8 +125,8 @@ def filter_valid_blocks(blocks):
 
 def send_slack_message(channel, text, thread_ts=None):
     """Send a message to Slack."""
-    print("Entered send_slack_message")
-    print("format_for_slack ---> ", len(text["blocks"]))
+    # print("Entered send_slack_message")
+    # print("format_for_slack ---> ", len(text["blocks"]))
     valid_blocks = filter_valid_blocks(text["blocks"])
 
     headers = {
@@ -143,20 +148,22 @@ def send_slack_message(channel, text, thread_ts=None):
 @app.route('/query', methods=['POST'])
 def query():
     try:
-        print("Query received")
+        print("Query API called")
         data = request.get_json()
-        print(data)
+        # print(data)
         if not data or 'query' not in data:
             return jsonify({"error": "No query provided"}), 400
         
         query_text = data['query']
-        print(query_text)
+
         # Classify the query intent
         sys_prompt = qa.classify_query(query_text)
         
         print("sys_prompt ---> ", sys_prompt)
         print("query_text ---> ", query_text)
         response = qa.ai_magic(sys_prompt, query_text)
+        print("Response from Query API ---> ", response)
+        print("Query API executed")
         
         return jsonify({
             "intent": sys_prompt,
@@ -168,4 +175,6 @@ def query():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
-    app.run(host='0.0.0.0', port=port) 
+    print("App running on port", port)
+    app.debug = os.environ.get('FLASK_DEBUG', 'True') != 'False'
+    app.run(host='127.0.0.1', port=port) 
