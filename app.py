@@ -29,6 +29,7 @@ def slack_events():
     print("Slack event received")
     data = request.get_json()
     print("data['event']", data['event'])
+    # return jsonify({"ok": True})
 
     # Slack event challenge verification
     if "challenge" in data:
@@ -37,45 +38,51 @@ def slack_events():
     # Handle message events
     if data['event']['type'] == 'message' and 'subtype' not in data['event'] and not data['event']['text'].startswith("Bot:"):
         user_id = data['event']['user']
-        thread_id = data['event'].get('thread_ts', data['event']['ts'])
         user_query = data['event']['text']
         channel_id = data['event']['channel']
-        thread_ts = data['event'].get('ts')
+        ts = data['event'].get('ts')
+        thread_ts = data['event'].get('thread_ts')
+        conversation_id = f"{user_id}-{ts}"
 
         # Run the task in a separate thread
         if not (data['event'].get('bot_id') or data['event'].get('subtype') == "message_changed"):
             thread = Thread(target=run_async_task, args=(
-                user_query, channel_id, thread_ts, thread_id, user_id))
+                user_query, channel_id, thread_ts, user_id, conversation_id, ts))
             thread.start()
     print("Slack event processed")
     return jsonify({"ok": True})
 
 
-def run_async_task(user_query, channel_id, thread_ts, thread_id, user_id):
+def run_async_task(user_query, channel_id, thread_ts, user_id, conversation_id, ts):
     print("Params received for run_async_task:")
     print("User Query:", user_query)
     print("Channel ID:", channel_id)
     print("Thread Timestamp:", thread_ts)
-    print("Thread ID:", thread_id)
     print("User ID:", user_id)
     """Run async task in a separate thread."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
         task = loop.create_task(
-            execute(user_query, channel_id, thread_ts, thread_id, user_id))
+            execute(user_query, channel_id, thread_ts, user_id, conversation_id, ts))
         loop.run_until_complete(task)
     finally:
         loop.close()
 
 
-async def execute(user_query: str, channel_id: str, thread_ts: str, thread_id: str, user_id: str):
+async def execute(user_query: str, channel_id: str, thread_ts: str, user_id: str, conversation_id: str, ts: str):
     """Execute the task with both ts values"""
     try:
         print(f"Starting execute with user_query: {
-              user_query}, channel_id: {channel_id}, thread_ts: {thread_ts}, thread_id: {thread_id}")
+              user_query}, channel_id: {channel_id}, thread_ts: {thread_ts}")
+        # check conversation id
+        if conversation_id is not f"{user_id}-{thread_ts}":
+            pass
+        else:
+            conversation_id = f"{user_id}-{thread_ts}"
         # Store user query in chat history
-        qa.store_chat_message(user_query, user_id, thread_id, "user")
+        qa.store_chat_message(user_query, user_id, thread_ts,
+                              "user", conversation_id)
         print("User query stored in chat history")
 
         # Get system prompt based on query classification
@@ -83,41 +90,41 @@ async def execute(user_query: str, channel_id: str, thread_ts: str, thread_id: s
         print(f"System prompt for user_query: {sys_prompt}")
 
         # Get response using both chat history and content
-        response = qa.ai_magic(sys_prompt, user_query, user_id, thread_id)
+        response = qa.ai_magic(sys_prompt, user_query, conversation_id)
         print(f"Response received: {response}")
 
         if "error" in response:
             error_message = {"blocks": [{"type": "section", "text": {
                 "type": "mrkdwn", "text": "Sorry, I encountered an error processing your request."}}]}
-            send_slack_message(channel_id, error_message, thread_ts)
+            send_slack_message(channel_id, error_message, thread_ts, ts)
             print("Error response sent to Slack")
             return
 
         # Store assistant's response in chat history
         qa.store_chat_message(
-            response["answer"], user_id, thread_id, "assistant")
+            response["answer"], user_id, thread_ts, "assistant", conversation_id)
         print("Assistant's response stored in chat history")
 
         # Format and send response to Slack
         formatted_answer = format_for_slack(response["answer"])
-        # Convert string to JSON if it's a string
-        if isinstance(formatted_answer, str):
-            try:
-                formatted_answer = json.loads(formatted_answer)
-            except json.JSONDecodeError as e:
-                print(f"Failed to decode formatted answer: {formatted_answer}")
-                error_message = {"blocks": [{"type": "section", "text": {
-                    "type": "mrkdwn", "text": "Sorry, I encountered an error formatting the response."}}]}
-                send_slack_message(channel_id, error_message, thread_ts)
-                return
-        send_slack_message(channel_id, formatted_answer, thread_ts)
+        # # Convert string to JSON if it's a string
+        # if isinstance(formatted_answer, str):
+        #     try:
+        #         formatted_answer = json.loads(formatted_answer)
+        #     except json.JSONDecodeError as e:
+        #         print(f"Failed to decode formatted answer: {formatted_answer}")
+        #         error_message = {"blocks": [{"type": "section", "text": {
+        #             "type": "mrkdwn", "text": "Sorry, I encountered an error formatting the response."}}]}
+        #         send_slack_message(channel_id, error_message, thread_ts, ts)
+        #         return
+        send_slack_message(channel_id, formatted_answer, thread_ts, ts)
         print("Formatted answer sent to Slack")
 
     except Exception as e:
         print(f"Error in execute: {e}")
         error_message = {"blocks": [{"type": "section", "text": {
             "type": "mrkdwn", "text": "Sorry, I encountered an error processing your request."}}]}
-        send_slack_message(channel_id, error_message, thread_ts)
+        send_slack_message(channel_id, error_message, thread_ts, ts)
 
 
 async def cancel_task_after(task, delay):
@@ -150,7 +157,7 @@ def filter_valid_blocks(blocks):
     return valid_blocks
 
 
-def send_slack_message(channel, text, thread_ts=None):
+def send_slack_message(channel, text, thread_ts: str, ts: str):
     """Send a message to Slack."""
     valid_blocks = filter_valid_blocks(text["blocks"])
 
@@ -163,7 +170,10 @@ def send_slack_message(channel, text, thread_ts=None):
         "blocks": valid_blocks,
         "text": "Message from Bot"
     }
-    if thread_ts:
+
+    payload["thread_ts"] = ts
+
+    if thread_ts is not None:
         payload["thread_ts"] = thread_ts
 
     response = requests.post(

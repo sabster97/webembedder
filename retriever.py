@@ -26,7 +26,6 @@ class DocumentQA:
             name="chat_history")
 
         self.prompt_library = get_sys_prompt()
-        # print("self.prompt_library", self.prompt_library)
         api_key = os.getenv('OPENAI_API_KEY')
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is not set")
@@ -113,8 +112,6 @@ class DocumentQA:
         try:
             # First get the query embedding using the same model as document embeddings
             query_embedding = self._get_query_embedding(query)
-            print(f"Query embedding dimensions: {
-                  len(query_embedding)}")  # Should print 1536
 
             # Query the collection with the embedding
             results = self.content_collection.query(
@@ -186,92 +183,80 @@ class DocumentQA:
             print("Error in _count_tokens:", e)
             return 0
 
-    def store_chat_message(self, text: str, user_id: str, thread_ts: str, role: str):
+    def store_chat_message(self, text: str, user_id: str, thread_ts: str, role: str, conversation_id: str):
         print("Params received for store_chat_message:")
         print("Text:", text)
         print("User ID:", user_id)
-        print("Thread timestamp:", thread_ts)
+        # print("Thread timestamp:", thread_ts)
         print("Role:", role)
         """Store a chat message in the chat_history collection"""
         try:
             embedding = self._get_query_embedding(text)
-            # Combine user_id and thread_ts to create a unique conversation ID
-            conversation_id = f"{user_id}-{thread_ts}"
-
-            # Ensure all metadata fields have valid values
             if not text:
                 raise ValueError("Text cannot be None or empty")
             if not user_id:
                 raise ValueError("User ID cannot be None or empty")
-            if not thread_ts:
-                raise ValueError("Thread timestamp cannot be None or empty")
             if not role:
                 raise ValueError("Role cannot be None or empty")
+
+            print("time.time()", time.time())
 
             self.chat_collection.add(
                 embeddings=[embedding],
                 documents=[text],
                 metadatas=[{
-                    "thread_ts": thread_ts,
                     "conversation_id": conversation_id,
                     "role": role,
                     "timestamp": time.time()
                 }],
-                ids=[f"{thread_ts}-{role}-{time.time()}"]
+                ids=[f"{conversation_id}-{role}-{time.time()}"]
             )
         except Exception as e:
             print(f"Error storing chat message: {e}")
 
-    def get_chat_history(self, user_id: str, thread_ts: str, limit: int = 5) -> List[Dict]:
+    def get_chat_history(self, conversation_id: str, limit: int = 25) -> List[Dict]:
         """Retrieve chat history for a specific thread"""
         try:
             # Use metadata filtering to get messages from the same conversation
-            conversation_id = f"{user_id}-{thread_ts}"
             results = self.chat_collection.query(
                 query_embeddings=None,  # No need for semantic search here
                 # Filter by conversation_id
                 where={"conversation_id": conversation_id},
                 n_results=limit,
-                # Sort by timestamp to get messages in chronological order
-                # order_by=["timestamp"]
             )
             return results
         except Exception as e:
             print(f"Error retrieving chat history: {e}")
             return {"documents": [[]], "metadatas": [[]], "distances": [[]]}
 
-    def ai_magic(self, sys_prompt: str, query: str, user_id: str, thread_ts: str) -> Dict[str, Any]:
+    def ai_magic(self, sys_prompt: str, query: str, conversation_id: str) -> Dict[str, Any]:
         """Enhanced RAG implementation with better context handling and structured output"""
         print("Inside Ai Magic")
 
         # Get chat history
-        chat_history = self.get_chat_history(user_id, thread_ts)
+        chat_history = self.get_chat_history(conversation_id)
         chat_context = []
+        print("chat_history", chat_history)
+        messages = {}
         for i, doc in enumerate(chat_history['documents'][0]):
             role = chat_history['metadatas'][0][i]['role']
-            chat_context.append(f"{role}: {doc}")
+            timestamp = chat_history['metadatas'][0][i]['timestamp']
+            messages[f"{role}-{timestamp}"] = timestamp
+
+        chat_context = [key for key, _ in sorted(
+            messages.items(), key=lambda item: float(item[1]), reverse=True)]
 
         # Get relevant content from clientell_content
         relevant_docs = self._enhance_retrieval(query, n_results=10)
         # print("relevant_docs",relevant_docs)
-        # TODO - To include metadata in the context
         content_context = []
         for doc in relevant_docs:
             arr = []
             arr.append(doc["content"])
             for k, v in doc["metadata"].items():
-                print(k, "huuuuuuuuuuuuuuuuuuuuuuuuuuu", v)
-                print(type(k), "huuuuuuuuuuuuuuuu", type(f"{v}"))
-
                 arr.append(str(k) + ":" + f"{v}")
-            # print("doc_content", doc["content"][:10])
-            # print("doc_metadata", doc["metadata"][:10])
-            print("arrrrrrrrrrrrrrrrrrr", arr)
 
             content_context.append(" ".join(arr))
-        print("content_context", content_context[:2])
-
-        # user_prompt = query
         # Combine both contexts
         final_user_prompt = f"""Chat History:
 {' '.join(chat_context)}

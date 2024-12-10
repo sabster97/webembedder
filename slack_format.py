@@ -1,76 +1,102 @@
 import json
 
+
+def chunk_text(text, max_length=2900):
+    """Split text into chunks that respect Slack's character limit."""
+    words = text.split()
+    chunks = []
+    current_chunk = []
+    current_length = 0
+
+    for word in words:
+        # Add space before word except at start
+        word_length = len(word) + (1 if current_length > 0 else 0)
+
+        if current_length + word_length > max_length:
+            # Join current chunk and start new one
+            chunks.append(' '.join(current_chunk))
+            current_chunk = [word]
+            current_length = len(word)
+        else:
+            current_chunk.append(word)
+            current_length += word_length
+
+    # Add remaining chunk if any
+    if current_chunk:
+        chunks.append(' '.join(current_chunk))
+
+    return chunks
+
+
 def format_for_slack(input_text):
-    sections = input_text.split("\n\n")
+    """Format text for Slack with proper block structure and length limits."""
     blocks = []
 
+    # Split into sections by double newline
+    sections = input_text.split('\n\n')
+
     for section in sections:
-        # Add section header
-        if section.startswith("###"):
-            header = section.split("\n")[0].replace("### ", "")
+        if not section.strip():
+            continue
+
+        # Handle headers (lines starting with ###)
+        lines = section.split('\n')
+        if lines[0].startswith('###'):
+            header = lines[0].replace('### ', '').strip()
             blocks.append({
                 "type": "header",
                 "text": {
                     "type": "plain_text",
-                    "text": header
+                    "text": header[:150]  # Slack header length limit
                 }
             })
-            # Extract the remaining part
-            section = "\n".join(section.split("\n")[1:])
 
-        # Add text block
+            # Remove header from section text
+            section = '\n'.join(lines[1:])
+
+        if section.strip():
+            # Split long sections into chunks
+            text_chunks = chunk_text(section)
+
+            for chunk in text_chunks:
+                if chunk.strip():  # Only add non-empty chunks
+                    blocks.append({
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": chunk
+                        }
+                    })
+
+    # Slack has a limit of 50 blocks per message
+    if len(blocks) > 50:
+        blocks = blocks[:50]
         blocks.append({
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": section
+                "text": "_(Message truncated due to length)_"
             }
         })
 
-    # Format for Slack JSON payload
-    slack_payload = {
+    return {
         "blocks": blocks
     }
 
-    return json.dumps(slack_payload, indent=2)
 
 if __name__ == "__main__":
-    # Example usage
-    input_text = """### Current SEO Strengths and Weaknesses:
-    **Strengths:**
-    - The content is rich in relevant keywords related to Salesforce best practices across various industries.
-    - The website has a good amount of content, which can help in targeting a wide range of search queries.
-    - The content provides detailed information about Salesforce best practices, implementation checklists, and benefits for different sectors.
+    # Test input
+    test_input = """### Example Header
+This is a test section with some content.
 
-    **Weaknesses:**
-    - Lack of unique meta descriptions and title tags for each page, which can affect click-through rates in search results.
-    - Limited use of internal linking to connect related content and improve website structure.
-    - The content could be more organized and structured for better user experience and SEO.
+### Another Header
+This is another section with different content.
+It has multiple lines.
 
-    ### Keyword Optimization Suggestions:
-    - Conduct keyword research to identify high-volume and relevant keywords related to Salesforce best practices in different industries.
-    - Optimize meta titles, headings, and content with targeted keywords to improve visibility in search results.
-    - Use long-tail keywords specific to each industry or service to attract more qualified traffic.
-    - Include keywords in image alt text, URLs, and meta descriptions for better optimization.
+### Final Section
+- Bullet point 1
+- Bullet point 2
+- Bullet point 3"""
 
-    ### Content Structure Improvements:
-    - Create a clear hierarchy of content with headings, subheadings, and bullet points for easy readability.
-    - Use internal linking to connect related content and guide users to explore more pages on the website.
-    - Consider creating pillar pages for each industry or service category to consolidate related content and improve SEO.
-
-    ### Meta Description and Title Tag Recommendations:
-    - Craft unique and compelling meta descriptions that accurately describe the content of each page and include relevant keywords.
-    - Optimize title tags to be concise, descriptive, and include primary keywords to improve click-through rates and search visibility.
-    - Ensure meta descriptions and title tags are within recommended character limits for better display in search results.
-
-    ### Specific Actionable Improvements:
-    1. Implement a consistent internal linking strategy to connect related content and improve website structure.
-    2. Optimize meta descriptions and title tags for each page with relevant keywords and unique descriptions.
-    3. Consider creating industry-specific landing pages with targeted content and keywords to attract more organic traffic.
-    4. Improve content organization by grouping related topics together and creating clear navigation paths for users.
-    5. Regularly update and refresh content to keep it relevant and engaging for users and search engines.
-
-    By implementing these improvements, you can enhance the website's SEO performance, increase visibility in search results, and attract more qualified traffic from organic search."""
-
-    formatted_text = format_for_slack(input_text)
-    print(formatted_text)
+    formatted = format_for_slack(test_input)
+    print(json.dumps(formatted, indent=2))
