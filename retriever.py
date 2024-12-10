@@ -233,7 +233,7 @@ class DocumentQA:
                 where={"conversation_id": conversation_id},
                 n_results=limit,
                 # Sort by timestamp to get messages in chronological order
-                order_by=["timestamp"]
+                # order_by=["timestamp"]
             )
             return results
         except Exception as e:
@@ -254,10 +254,24 @@ class DocumentQA:
         # Get relevant content from clientell_content
         relevant_docs = self._enhance_retrieval(query, n_results=10)
         # print("relevant_docs",relevant_docs)
-        content_context = [self._truncate_context(
-            doc['content']) for doc in relevant_docs]
+        # TODO - To include metadata in the context
+        content_context = []
+        for doc in relevant_docs:
+            arr = []
+            arr.append(doc["content"])
+            for k, v in doc["metadata"].items():
+                print(k, "huuuuuuuuuuuuuuuuuuuuuuuuuuu", v)
+                print(type(k), "huuuuuuuuuuuuuuuu", type(f"{v}"))
 
-        user_prompt = query
+                arr.append(str(k) + ":" + f"{v}")
+            # print("doc_content", doc["content"][:10])
+            # print("doc_metadata", doc["metadata"][:10])
+            print("arrrrrrrrrrrrrrrrrrr", arr)
+
+            content_context.append(" ".join(arr))
+        print("content_context", content_context[:2])
+
+        # user_prompt = query
         # Combine both contexts
         final_user_prompt = f"""Chat History:
 {' '.join(chat_context)}
@@ -348,7 +362,7 @@ Current Query: {query}"""
 
         # Perform initial retrieval
         initial_results = self._get_relevant_chunks(query, n_results=n_results)
-        # print("initial_results",initial_results)
+        # print("initial_results", initial_results)
 
         # Rerank results based on semantic similarity and relevance
         reranked_results = []
@@ -367,6 +381,7 @@ Current Query: {query}"""
         # print("reranked_results",reranked_results)
         # Sort by final score and return top results
         reranked_results.sort(key=lambda x: x['final_score'], reverse=True)
+        print("reranked_results", reranked_results[:n_results])
         return reranked_results[:n_results]
 
     def _get_query_embedding(self, query: str) -> List[float]:
