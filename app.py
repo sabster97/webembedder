@@ -13,6 +13,7 @@ load_dotenv()
 app = Flask(__name__)
 qa = DocumentQA()
 
+
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy"}), 200
@@ -22,10 +23,12 @@ SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 API_URL = os.getenv("API_URL")
 print("API_URL ---> ", API_URL)
 
+
 @app.route('/slack/events', methods=['POST'])
 def slack_events():
     print("Slack event received")
     data = request.get_json()
+    print("data['event']", data['event'])
 
     # Slack event challenge verification
     if "challenge" in data:
@@ -33,72 +36,96 @@ def slack_events():
 
     # Handle message events
     if data['event']['type'] == 'message' and 'subtype' not in data['event'] and not data['event']['text'].startswith("Bot:"):
+        user_id = data['event']['user']
+        thread_id = data['event'].get('thread_ts', data['event']['ts'])
         user_query = data['event']['text']
         channel_id = data['event']['channel']
         thread_ts = data['event'].get('ts')
 
         # Run the task in a separate thread
         if not (data['event'].get('bot_id') or data['event'].get('subtype') == "message_changed"):
-            thread = Thread(target=run_async_task, args=(user_query, channel_id, thread_ts))
+            thread = Thread(target=run_async_task, args=(
+                user_query, channel_id, thread_ts, thread_id, user_id))
             thread.start()
     print("Slack event processed")
     return jsonify({"ok": True})
 
-def run_async_task(user_query, channel_id, thread_ts):
+
+def run_async_task(user_query, channel_id, thread_ts, thread_id, user_id):
+    print("Params received for run_async_task:")
+    print("User Query:", user_query)
+    print("Channel ID:", channel_id)
+    print("Thread Timestamp:", thread_ts)
+    print("Thread ID:", thread_id)
+    print("User ID:", user_id)
     """Run async task in a separate thread."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        task = loop.create_task(execute(user_query, channel_id, thread_ts))
+        task = loop.create_task(
+            execute(user_query, channel_id, thread_ts, thread_id, user_id))
         loop.run_until_complete(task)
     finally:
         loop.close()
 
-async def execute(user_query, channel_id, thread_ts):
-    """Execute the task."""
+
+async def execute(user_query: str, channel_id: str, thread_ts: str, thread_id: str, user_id: str):
+    """Execute the task with both ts values"""
     try:
-        print("Executing task...")
-        # Call your API with the user's query
-        api_response = requests.post(API_URL, json={"query": user_query})
-        print("api_response", api_response)
-        api_response.raise_for_status()  # Raise an exception for bad status codes
-        
-        try:
-            api_data = api_response.json()
-        except requests.exceptions.JSONDecodeError as e:
-            print(f"Failed to decode API response: {api_response.text}")
-            error_message = {"blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "Sorry, I received an invalid response from the API."}}]}
+        print(f"Starting execute with user_query: {
+              user_query}, channel_id: {channel_id}, thread_ts: {thread_ts}, thread_id: {thread_id}")
+        # Store user query in chat history
+        qa.store_chat_message(user_query, user_id, thread_id, "user")
+        print("User query stored in chat history")
+
+        # Get system prompt based on query classification
+        sys_prompt = qa.classify_query(user_query)
+        print(f"System prompt for user_query: {sys_prompt}")
+
+        # Get response using both chat history and content
+        response = qa.ai_magic(sys_prompt, user_query, user_id, thread_id)
+        print(f"Response received: {response}")
+
+        if "error" in response:
+            error_message = {"blocks": [{"type": "section", "text": {
+                "type": "mrkdwn", "text": "Sorry, I encountered an error processing your request."}}]}
             send_slack_message(channel_id, error_message, thread_ts)
+            print("Error response sent to Slack")
             return
 
-        # Format the response based on the API response structure
-        response = api_data.get('response', {})
-        answer = response.get('answer', '')
-        formatted_answer = format_for_slack(answer)
+        # Store assistant's response in chat history
+        qa.store_chat_message(
+            response["answer"], user_id, thread_id, "assistant")
+        print("Assistant's response stored in chat history")
+
+        # Format and send response to Slack
+        formatted_answer = format_for_slack(response["answer"])
         # Convert string to JSON if it's a string
         if isinstance(formatted_answer, str):
             try:
                 formatted_answer = json.loads(formatted_answer)
             except json.JSONDecodeError as e:
                 print(f"Failed to decode formatted answer: {formatted_answer}")
-                error_message = {"blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "Sorry, I encountered an error formatting the response."}}]}
+                error_message = {"blocks": [{"type": "section", "text": {
+                    "type": "mrkdwn", "text": "Sorry, I encountered an error formatting the response."}}]}
                 send_slack_message(channel_id, error_message, thread_ts)
                 return
-
-        print("Task completed")
-        # Send the formatted message to Slack
         send_slack_message(channel_id, formatted_answer, thread_ts)
-        
-    except requests.exceptions.RequestException as e:
-        print(f"API request failed: {str(e)}")
-        error_message = {"blocks": [{"type": "section", "text": {"type": "mrkdwn", "text": "Sorry, I couldn't reach the API at this time."}}]}
+        print("Formatted answer sent to Slack")
+
+    except Exception as e:
+        print(f"Error in execute: {e}")
+        error_message = {"blocks": [{"type": "section", "text": {
+            "type": "mrkdwn", "text": "Sorry, I encountered an error processing your request."}}]}
         send_slack_message(channel_id, error_message, thread_ts)
+
 
 async def cancel_task_after(task, delay):
     """Cancel the task after a delay."""
     await asyncio.sleep(delay)
     if not task.done():
         task.cancel()
+
 
 def filter_valid_blocks(blocks):
     """
@@ -125,8 +152,6 @@ def filter_valid_blocks(blocks):
 
 def send_slack_message(channel, text, thread_ts=None):
     """Send a message to Slack."""
-    # print("Entered send_slack_message")
-    # print("format_for_slack ---> ", len(text["blocks"]))
     valid_blocks = filter_valid_blocks(text["blocks"])
 
     headers = {
@@ -141,40 +166,45 @@ def send_slack_message(channel, text, thread_ts=None):
     if thread_ts:
         payload["thread_ts"] = thread_ts
 
-    response = requests.post("https://slack.com/api/chat.postMessage", headers=headers, json=payload)
+    response = requests.post(
+        "https://slack.com/api/chat.postMessage", headers=headers, json=payload)
     print("response ---> ", response.json())
 
 
-@app.route('/query', methods=['POST'])
-def query():
-    try:
-        print("Query API called")
-        data = request.get_json()
-        # print(data)
-        if not data or 'query' not in data:
-            return jsonify({"error": "No query provided"}), 400
-        
-        query_text = data['query']
+# @app.route('/query', methods=['POST'])
+# def query():
+#     try:
+#         data = request.get_json()
+#         if not data or 'query' not in data:
+#             return jsonify({"error": "No query provided"}), 400
 
-        # Classify the query intent
-        sys_prompt = qa.classify_query(query_text)
-        
-        print("sys_prompt ---> ", sys_prompt)
-        print("query_text ---> ", query_text)
-        response = qa.ai_magic(sys_prompt, query_text)
-        print("Response from Query API ---> ", response)
-        print("Query API executed")
-        
-        return jsonify({
-            "intent": sys_prompt,
-            "response": response
-        }), 200
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+#         query_text = data['query']
+#         thread_ts = data.get('thread_ts')  # Get thread_ts if provided
+
+#         # Classify the query intent
+#         sys_prompt = qa.classify_query(query_text)
+
+#         # Pass thread_ts to ai_magic for conversation context
+#         response = qa.ai_magic(sys_prompt, query_text, thread_ts)
+
+#         if "error" in response:
+#             return jsonify({"error": response["error"]}), 500
+
+#         # Store the query and response in chat history
+#         qa.store_chat_message(query_text, thread_ts, "user")
+#         qa.store_chat_message(response["answer"], thread_ts, "assistant")
+
+#         return jsonify({
+#             "intent": sys_prompt,
+#             "response": response
+#         }), 200
+
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
     print("App running on port", port)
     app.debug = os.environ.get('FLASK_DEBUG', 'True') != 'False'
-    app.run(host='127.0.0.1', port=port) 
+    app.run(host='127.0.0.1', port=port)
